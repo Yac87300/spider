@@ -1,0 +1,40 @@
+{
+  "Tag": "四川省大数据中心",
+  "AllowsPushdataFromlocal": "yes",
+  "Matser" : "192.168.0.88:67",
+  "Port" : "67",
+  "V-gRpc" : "reflect",
+  "Passwd": "pac@123",
+  "Bind": "no",
+  "CommandLimit" : "yes",
+  "Role" : "master",
+  "GatewayProxy" : [
+    {
+    "H" : "http",
+    "OutPath" : "testtest",
+    "InsidePath": "/master/ping",
+    "InsidePathPort" : "67",
+    "Servers": "127.0.0.1",
+    "Lvs"    : "round",
+    "Timecheck" : "yes",
+    "Tokencheck": "akhjbd871g2ekjdbaodhpajslkd19dansjx01qx",
+    "MaxFailedFromOneIP": 4000
+    },{
+      "H" : "http",
+      "OutPath" : "ipproxy",
+      "InsidePath": "/master/show",
+      "InsidePathPort" : "67",
+      "Servers": "127.0.0.1",
+      "Lvs"    : "round",
+      "Timecheck" : "yes",
+      "Tokencheck": "akhjbd871g2ekjdbaodhpajslkd19dansjx01qx",
+      "MaxFailedFromOneIP": 4000
+    }
+  ],
+  "AlertMethod" : [
+    {
+      "Path" : "script/qywx.sh",
+      "RunMode":"key {{msg}}"
+    }
+  ]
+}

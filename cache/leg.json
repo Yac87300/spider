@@ -1,0 +1,21 @@
+{
+  "legs" : [
+    {
+      "Legname" : "test",
+      "Method": "POST",
+      "VarsFromApi" : "passwd,name",
+      "HandleMode": "script/check.sh {{passwd}} {{name}}",
+      "ReturnResult" : "yes",
+      "Token" : "pac@123",
+      "NeedIdentifyingcode": "",
+      "Proxyto" : "192.168.0.99"
+    },{
+      "Legname" : "check",
+      "Method": "POST",
+      "VarsFromApi" : "passwd,name,ip,id",
+      "HandleMode": "script/check.sh {{passwd}} {{name}}",
+      "ReturnResult" : "yes",
+      "Token" : "pac@123"
+    }
+  ]
+}

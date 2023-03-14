@@ -1,0 +1,10 @@
+{
+  "Tag": "",
+  "AllowsPushdataFromlocal": "yes",
+  "Port" : "67",
+  "V-gRpc" : "reflect",
+  "Passwd": "pac@123",
+  "Bind": "no",
+  "Role" : "master",
+  "AgentPort" : "68"
+}

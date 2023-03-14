@@ -1,0 +1,22 @@
+{
+  "Tag": "192.168.0.106",
+  "AllowsPushdataFromlocal": "yes",
+  "Matser" : "127.0.0.1:67",
+  "Port" : "68",
+  "V-gRpc" : "reflect",
+  "Passwd": "pac@123",
+  "Bind": "no",
+  "CommandLimit" : "yes",
+  "Rulesource" : [
+    {
+      "Name" : "ssh-agent监控",
+      "DataType": "string",
+      "From" : "ps aux | grep -v grep | grep ssh-agent",
+      "Alert" : "!index",
+      "Alertdata" : "ssh-agent",
+      "AlertTo": "script/qywx.sh",
+      "ForTime": 100,
+      "Msg":"服务器：Ip\n指标：Name\n 数据来源：From\n 触发规则：Alert Alertdata\n 程序判断结果：Rs\n触发时间：Time"
+    }
+  ]
+}
