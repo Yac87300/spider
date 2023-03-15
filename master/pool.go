@@ -351,7 +351,7 @@ func cachespmid(){
             continue
         }
         //ip:name:time
-        data,err := Jiemi("19a7251c679b22ccf83bd8a9709910be",fileScanner.Text())
+        data,err := Jiemi("KEY",fileScanner.Text())
         if err != nil{
             fmt.Println(fileScanner.Text(),"is not a spmid")
             continue
