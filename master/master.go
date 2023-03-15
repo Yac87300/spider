@@ -26,7 +26,7 @@ var spmids sync.Map
 
 func Bindcheck(c *gin.Context){
 	spid := c.Query("spid")
-	data,err := Jiemi("19a7251c679b22ccf83bd8a9709910be",spid)
+	data,err := Jiemi("KEY",spid)
 	fmt.Println(data)
 	if err != nil{
 		c.JSON(503,gin.H{
@@ -60,7 +60,7 @@ func Bindcheck(c *gin.Context){
 }
 
 func testjiami(c *gin.Context){
-	data,err := Jiami("19a7251c679b22ccf83bd8a9709910be",c.PostForm("id"))
+	data,err := Jiami("KEY",c.PostForm("id"))
 	if err != nil{
 		c.JSON(200,gin.H{
 			"error": err,
