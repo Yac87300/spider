@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"mime/multipart"
 	"net/http"
+	"time"
 )
 
 func Getrule(ip,passwd,path string)(loadconf.Rulejson,bool){
@@ -25,7 +26,7 @@ func Getrule(ip,passwd,path string)(loadconf.Rulejson,bool){
 	}
 
 
-	client := &http.Client {
+	client := &http.Client {Timeout: time.Second * 3,
 	}
 	req, err := http.NewRequest(method, url, payload)
 

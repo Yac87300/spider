@@ -517,13 +517,15 @@ func GetallruleAndRsFromAgent(c *gin.Context){
 			if ok {
 
 			}else {
-				ipk , _ := loadconf.GroupipCache.Load(key.(string))
+				ipk , ok2 := loadconf.GroupipCache.Load(key.(string))
 				if  ipk == grouptag{
 					rule,ok := Getrule(key.(string) +":" +loadconf.ShareConfload.AgentPort,loadconf.Conf["Passwd"],"/rule/getrs")
 					if ok {
 						crulelist.Data = append(crulelist.Data,rule)
 						return true
 					}
+				}else {
+					return ok2
 				}
 
 			}

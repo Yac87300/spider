@@ -349,12 +349,12 @@ func Run(name,cmdrun,fortime,alert,dataType,alerdata,alerto string){
 			rundata := cmdrunReturndata
 			comparedata,err :=  strconv.Atoi(alerdata)
 			if err != nil {
-				cmdrunReturndata= "数值判断器运行错误(" + string(bytes) +")"
 
+				cmdrunReturndata= "Alertdata数值判断器运行错误(" + string(alerdata) +")"
 			}
 			rundataNum,err := strconv.Atoi(rundata)
 			if err != nil {
-				cmdrunReturndata= "数值判断器运行错误(" + alerdata +")"
+				cmdrunReturndata= "Rundata数值判断器运行错误(" + rundata + cmdrunReturndata +")"
 			}
 			if rundataNum < comparedata {
 				cmdrunReturndata = cmdrunReturndata +  "～"  + " Cmddata:"  + rundata +  " < " + alerdata

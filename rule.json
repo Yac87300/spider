@@ -1,10 +1,19 @@
 {
-  "Tag": "",
+  "Tag": "Demo",
   "AllowsPushdataFromlocal": "yes",
+  "Matser" : "",
   "Port" : "67",
+  "AgentPort" : "68",
   "V-gRpc" : "reflect",
   "Passwd": "pac@123",
   "Bind": "no",
+  "CommandLimit" : "yes",
   "Role" : "master",
-  "AgentPort" : "68"
+  "GatewayProxy" : [],
+  "AlertMethod" : [
+    {
+      "Path" : "script/qywx.sh",
+      "RunMode":" c1ff2b0b-1687-4fbf-9518-788a640624de \"{{msg}}\""
+    }
+  ]
 }
