@@ -4,7 +4,9 @@ go 1.17
 
 require (
 	github.com/gin-gonic/gin v1.8.2
+	github.com/gorilla/websocket v1.5.0
 	github.com/tjfoc/gmsm v1.4.1
+	golang.org/x/net v0.4.0
 )
 
 require (
@@ -21,7 +23,6 @@ require (
 	github.com/pelletier/go-toml/v2 v2.0.6 // indirect
 	github.com/ugorji/go/codec v1.2.7 // indirect
 	golang.org/x/crypto v0.0.0-20211215153901-e495a2d5b3d3 // indirect
-	golang.org/x/net v0.4.0 // indirect
 	golang.org/x/sys v0.3.0 // indirect
 	golang.org/x/text v0.5.0 // indirect
 	google.golang.org/protobuf v1.28.1 // indirect

@@ -7,10 +7,12 @@ import (
 	"example.com/mod/loadconf"
 	"fmt"
 	"github.com/gin-gonic/gin"
+	"github.com/gorilla/websocket"
 	"io/ioutil"
 	"mime/multipart"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -22,6 +24,7 @@ var iplist sync.Map
 var Offline sync.Map
 var proxycomp sync.Map
 var spmids sync.Map
+var download sync.Map
 
 
 func Bindcheck(c *gin.Context){
@@ -110,10 +113,74 @@ func Signrouter(server *gin.Engine){
 		masterGroup.POST("/leg/:legname",Leg)
 		masterGroup.POST("/group",Managegroup)
 		masterGroup.POST("/groupip",ManageGroupip)
+		masterGroup.GET("/file/create",handleWebSocket)
+		masterGroup.GET("/file/download",Downdload)
 	}
 
 }
 
+var upgrader = websocket.Upgrader{
+	ReadBufferSize:  1024,
+	WriteBufferSize: 1024,
+}
+
+func handleWebSocket(c *gin.Context) {
+
+	upgrader := websocket.Upgrader{
+		CheckOrigin: func(r *http.Request) bool {
+			// 在这里判断请求来源是否允许
+			return true
+		},
+	}
+	filex :=  c.Query("filepath")
+	data,_:=Jiami("19a7251c679b22ccf83bd8a9709910be",filex)
+	download.Store(data,filex)
+	fmt.Println(data)
+	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	defer conn.Close()
+	// 在这里处理 WebSocket 连接逻辑
+
+	err = conn.WriteMessage(websocket.TextMessage,[]byte(data))
+	if err != nil {
+	}
+
+	for {
+		_, _, err := conn.ReadMessage()
+		if err != nil {
+			fmt.Println(filex,"断开")
+			download.Delete(data)
+			break
+		}
+
+		err = conn.WriteMessage(websocket.TextMessage,[]byte(filex))
+		if err != nil {
+
+			break
+		}
+		fmt.Println("keep")
+	}
+}
+
+func Downdload(c *gin.Context){
+	 filex := c.Query("filepath")
+	 key,ok := download.Load(filex)
+	 if !ok{
+	 	 c.JSON(200,gin.H{
+	 	 	"error" : "can't find this path",
+		 })
+		 return
+	 }
+	filename := filepath.Base(key.(string))
+	fmt.Println(filename,key)
+	c.Header("Content-Type", "application/octet-stream")
+	c.Header("Content-Disposition", "attachment; filename="+filename) // 用来指定下载下来的文件名
+	c.Header("Content-Transfer-Encoding", "binary")
+	c.File(key.(string))
+}
 
 
 
@@ -391,6 +458,7 @@ func CacheProxy(){
 	}
 }
 
+
 type Iplist struct {
 	Iplists []Data `json:"iplists"`
 }
@@ -545,8 +613,6 @@ func GetallruleAndRsFromAgent(c *gin.Context){
 			return ok
 		})
 	}
-
-
 	c.JSON(200,crulelist)
 }
 
@@ -611,9 +677,9 @@ type agentmsg struct {
 }
 
 
+
 func proxy(c *gin.Context){
-	proxynames := c.Param("proxyname")
-	Pathproxy := ""
+	proxynames := c.Param("proxyname");Pathproxy := ""
 	_,ok := proxycomp.Load(proxynames)
 	if ok {
 	   	H,_ := proxycomp.Load(proxynames+"H")

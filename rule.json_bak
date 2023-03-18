@@ -25,7 +25,7 @@
       "InsidePath": "/master/show",
       "InsidePathPort" : "67",
       "Servers": "127.0.0.1",
-      "Lvs"    : "round",
+      "Lvs"    : "round,lc,byserver",
       "Timecheck" : "yes",
       "Tokencheck": "akhjbd871g2ekjdbaodhpajslkd19dansjx01qx",
       "MaxFailedFromOneIP": 4000
