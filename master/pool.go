@@ -15,6 +15,7 @@ import (
     "strconv"
     "strings"
     "sync"
+    "syscall"
     "time"
 )
 
@@ -206,6 +207,7 @@ func ALertRun(cmds string){
     fmt.Println(cmds)
     cmd := exec.Command("/bin/bash", "-c", cmds)
     //创建获取命令输出管道
+    cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
     stdout, err := cmd.StdoutPipe()
     cmd.Stderr = cmd.Stdout
     if err != nil {
@@ -225,6 +227,10 @@ func ALertRun(cmds string){
         fmt.Println("ReadAll Stdout:", err.Error())
         return
     }
+
+    err = syscall.Kill(-cmd.Process.Pid, syscall.SIGTERM)
+    cmd.Process.Signal(syscall.SIGKILL)
+    err = cmd.Wait()
     fmt.Println(string(bytes))
 }
 

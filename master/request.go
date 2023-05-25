@@ -63,12 +63,20 @@ func VenusPost(c2 *gin.Context,Allvars ...interface{})interface{}{
 			c2.JSON(503, gin.H{
 				"error": "定义了变量:(" + fmt.Sprint(v.(string)) + "),请求中未找到此变量",
 			})
+			fmt.Println("定义了变量:(" + fmt.Sprint(v.(string)) + "),请求中未找到此变量",)
 			break
 		}
+		fmt.Printf(varname)
 		Vars = append(Vars,varname)
 	}
 	return Vars
 }
+
+//func GetVars(x interface{},globalmap sync.Map)(string){
+//	for _,va := range x.([]interface{}){
+//	   globalmap.Store(va.(string))
+//	}
+//}
 
 func Tranceforinterface(x interface{})(v []string){
 	for _,va := range x.([]interface{}){

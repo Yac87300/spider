@@ -8,8 +8,12 @@ import (
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
+	"gorm.io/gorm"
+	"io"
 	"io/ioutil"
+	"math/rand"
 	"mime/multipart"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -26,40 +30,44 @@ var proxycomp sync.Map
 var spmids sync.Map
 var download sync.Map
 
+var DB *gorm.DB
+
 
 func Bindcheck(c *gin.Context){
-	spid := c.Query("spid")
-	data,err := Jiemi("19a7251c679b22ccf83bd8a9709910be",spid)
-	fmt.Println(data)
-	if err != nil{
-		c.JSON(503,gin.H{
-			"error" : "Your cliTools no spid/spid notright to make token,stop your cliTools,Please call the admin to Add.",
-		})
-		c.Abort()
-		return
-	}
-
-	lip := strings.Split(data,":")
-	if c.ClientIP() != lip[0] {
-		fmt.Println(c.ClientIP(),lip[0])
-		c.JSON(503,gin.H{
-			"error" : "Your spid not right.",
-		})
-		c.Abort()
-		return
-	}
-
-	k,ok := spmids.Load(data)
-	fmt.Println("[cliTools]:",k,data,"From:",c.ClientIP(),"To:",c.FullPath())
-	if ok {
-		c.Next()
-	}else {
-		c.JSON(503,gin.H{
-			"error" : "Your cliTools no spid/spid notright to make token,stop your cliTools,Please call the admin to Add.",
-		})
-		c.Abort()
-		return
-	}
+	c.Next()
+	//spid := c.Query("spid")
+	//data,err := Jiemi("19a7251c679b22ccf83bd8a9709910be",spid)
+	//fmt.Println(data,spid)
+	//
+	//if err != nil{
+	//	c.JSON(503,gin.H{
+	//		"error" : "Your cliTools no spid/spid notright to make token,stop your cliTools,Please call the admin to Add.",
+	//	})
+	//	c.Abort()
+	//	return
+	//}
+	//
+	//lip := strings.Split(data,":")
+	//if c.ClientIP() != lip[0] {
+	//	fmt.Println(c.ClientIP(),lip[0])
+	//	c.JSON(503,gin.H{
+	//		"error" : "Your spid not right.",
+	//	})
+	//	c.Abort()
+	//	return
+	//}
+	//
+	//k,ok := spmids.Load(data)
+	//fmt.Println("[cliTools]:",k,data,"From:",c.ClientIP(),"To:",c.FullPath())
+	//if ok {
+	//	c.Next()
+	//}else {
+	//	c.JSON(503,gin.H{
+	//		"error" : "Your cliTools no spid/spid notright to make token,stop your cliTools,Please call the admin to Add.",
+	//	})
+	//	c.Abort()
+	//	return
+	//}
 }
 
 func testjiami(c *gin.Context){
@@ -75,16 +83,91 @@ func testjiami(c *gin.Context){
 	})
 }
 
+func isInternalIP(ip string) bool {
+	netIP := net.ParseIP(ip)
+	if netIP == nil {
+		return false
+	}
+
+	// IPv4的内网IP地址范围
+	privateIPBlocks := []*net.IPNet{
+		// 10.0.0.0 - 10.255.255.255
+		{IP: net.ParseIP("10.0.0.0"), Mask: net.CIDRMask(8, 32)},
+		// 172.16.0.0 - 172.31.255.255
+		{IP: net.ParseIP("172.16.0.0"), Mask: net.CIDRMask(12, 32)},
+		// 192.168.0.0 - 192.168.255.255
+		{IP: net.ParseIP("192.168.0.0"), Mask: net.CIDRMask(16, 32)},
+	}
+
+	for _, block := range privateIPBlocks {
+		if block.Contains(netIP) {
+			return true
+		}
+	}
+
+	// IPv6的内网IP地址范围（根据实际情况进行配置）
+	// privateIPv6Blocks := []*net.IPNet{
+	// 	// ...
+	// }
+
+	// for _, block := range privateIPv6Blocks {
+	// 	if block.Contains(netIP) {
+	// 		return true
+	// 	}
+	// }
+
+	return false
+}
+
+func CheckIP(c *gin.Context){
+	 if isInternalIP(c.ClientIP()) == false && c.ClientIP() != "127.0.0.1"{
+		 fmt.Println(c.ClientIP(),"c.abort")
+	 	c.JSON(200,gin.H{
+	 		"code" : "无效的路由",
+		})
+	 	c.Abort()
+		 return
+	 }
+	 fmt.Println(c.ClientIP(),"c.next()")
+	 c.Next()
+}
+
+
+
+
+
 func Signrouter(server *gin.Engine){
 
-	server.POST("/master/sm4",testjiami)
-	server.POST("/master/add",Addip)
-	server.POST("/master/alert",RunAlertMethod)
-	masterGroup := server.Group("/master",Bindcheck)
+
+	if loadconf.ShareConfload.OpenUiMode == "yes"{
+		server.POST("/master/auth",Loginvaild)
+	}
+
+	//server.POST("/master/sm4",testjiami)
+	server.POST("/master/add",CheckIP,Addip)
+	server.POST("/master/alert",CheckIP,RunAlertMethod)
+	server.GET("/master/keep/alive",CheckIP,Keepalived)
+	server.POST("/master/proxy/:proxyname",proxy)
+	server.GET("/master/proxy/:proxyname",proxy)
+
+	masterGroup := server.Group("/master",Checkapitoken)
 	{
-		masterGroup.POST("/ping", func(c *gin.Context) {
+		masterGroup.GET("/ping", func(c *gin.Context) {
+
+			c.JSON(200,gin.H{
+			 	"msg" : "1",
+			 })
+		})
+
+		masterGroup.POST("/ping2", func(c *gin.Context) {
 			msg := c.PostForm("msg")
 			token := c.PostForm("token")
+			rand.Seed(time.Now().UnixNano())
+			sleepTime := rand.Intn(3) + 1
+
+			// 睡眠随机秒数
+			time.Sleep(time.Duration(sleepTime) * time.Second)
+
 			q := c.Query("test")
 			if msg == ""{
 				c.JSON(200,gin.H{
@@ -93,21 +176,18 @@ func Signrouter(server *gin.Engine){
 				return
 			}
 			c.JSON(200,gin.H{
-			 	"msg" : msg + token + q,
-			 })
+				"msg" : msg + token + q,
+			})
 		})
 
 		masterGroup.POST("/show",Showiplist)
 		masterGroup.POST("/getrule",GetallruleFromAgent)
 		masterGroup.POST("/getrulers",GetallruleAndRsFromAgent)
-
 		masterGroup.POST("/delayAlert",SetBlackAlert)
 		masterGroup.POST("/delatAlertwithMd5",RunAlertMethodWithMd5)
 		masterGroup.POST("/openalertWithMd5",OpendelayAlertMethodWithMd5)
 		masterGroup.POST("/startAlert",StartBlackAlert)
 		masterGroup.POST("/showdelayAlert",Showdefer)
-		masterGroup.POST("/proxy/:proxyname",proxy)
-		masterGroup.GET("/proxy/:proxyname",proxy)
 		masterGroup.POST("/showmethod",Showmethod)
 		masterGroup.POST("/syncstatus",Sync)
 		masterGroup.POST("/leg/:legname",Leg)
@@ -115,13 +195,174 @@ func Signrouter(server *gin.Engine){
 		masterGroup.POST("/groupip",ManageGroupip)
 		masterGroup.GET("/file/create",handleWebSocket)
 		masterGroup.GET("/file/download",Downdload)
+		masterGroup.GET("/show/proxy",ShowPorxy)
+		masterGroup.GET("/show/leg",ShowLeg)
+		masterGroup.POST("/master/proxy/edit/:proxyname")
 	}
+}
 
+
+
+
+func ShowLeg(c *gin.Context){
+	local := loadconf.Legconf
+	c.JSON(200,local)
+}
+
+func ShowPorxy(c *gin.Context){
+
+	local := loadconf.ShareConfload.GatewayProxy
+
+	show := []loadconf.Proxyshow{}
+
+	for _,v := range local{
+		show = append(show,loadconf.Proxyshow{H: v.H,OutPath: v.OutPath,InsidePath: v.InsidePath,Servers: v.Servers,
+			Tokencheck: v.Tokencheck,Status: "ok"})
+	}
+	c.JSON(200,show)
+}
+
+
+func SendFunctionFileToagent(filename string, targetUrl string) error {
+	// 打开要上传的文件
+	file, err := os.Open(filename)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+	// 创建一个带有文件内容的缓冲区
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
+	part, err := writer.CreateFormFile("file", filename)
+	if err != nil {
+		return err
+	}
+	if _, err = io.Copy(part, file); err != nil {
+		return err
+	}
+	writer.Close()
+
+	// 创建HTTP请求
+	req, err := http.NewRequest("POST", targetUrl, body)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	// 发送HTTP请求
+	client := &http.Client{}
+	res, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer res.Body.Close()
+	// 检查响应状态码
+	if res.StatusCode != http.StatusOK {
+		return fmt.Errorf("failed to upload file, status code: %d", res.StatusCode)
+	}
+	return nil
+}
+
+func SyncSAgentStatus(ip,group,status,add string){
+	url := add
+	method := "POST"
+	payload := &bytes.Buffer{}
+	writer := multipart.NewWriter(payload)
+	_ = writer.WriteField("ip", ip)
+	_ = writer.WriteField("group", group)
+	_ = writer.WriteField("status", status)
+	err := writer.Close()
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	client := &http.Client {
+	}
+	req, err := http.NewRequest(method, url, payload)
+
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	res, err := client.Do(req)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	defer res.Body.Close()
+
+	_, err = ioutil.ReadAll(res.Body)
+	if err != nil {
+		fmt.Println("syncipstatus",err)
+		return
+	}
+	//fmt.Println(string(body))
 }
 
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
+}
+
+
+func Keepalived(c *gin.Context) {
+
+	upgrader := websocket.Upgrader{
+		CheckOrigin: func(r *http.Request) bool {
+			// 在这里判断请求来源是否允许
+			return true
+		},
+	}
+	sip := c.ClientIP()
+	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	defer conn.Close()
+	// 在这里处理 WebSocket 连接逻辑
+	err = conn.WriteMessage(websocket.TextMessage,[]byte("Master: established a connection with you"))
+	if err != nil {
+	}
+	Offline.Delete(sip)
+
+	data , ok := loadconf.GroupipCache.Load(sip)
+	if ok {
+		SyncSAgentStatus(sip,data.(string),"online",loadconf.ShareConfload.Spsqlipadd)
+	}else {
+		SyncSAgentStatus(sip,"NULL","online",loadconf.ShareConfload.Spsqlipadd)
+	}
+
+	for {
+		messageType, p, err := conn.ReadMessage()
+		if err != nil {
+			fmt.Println(sip,"断开")
+			Offline.Store(sip,"Offonline")
+			data , ok := loadconf.GroupipCache.Load(sip)
+			if ok {
+				SyncSAgentStatus(sip,data.(string),"offonline",loadconf.ShareConfload.Spsqlipadd)
+			}else {
+				SyncSAgentStatus(sip,"NULL","offonline",loadconf.ShareConfload.Spsqlipadd)
+			}
+			break
+		}
+		if messageType == websocket.TextMessage {
+			message := string(p)
+
+			if message == "update"{
+
+			}
+
+		} else if messageType == websocket.BinaryMessage {
+
+		}
+
+		err = conn.WriteMessage(websocket.TextMessage,[]byte("established"))
+		if err != nil {
+			break
+		}
+		fmt.Println("keep")
+	}
 }
 
 func handleWebSocket(c *gin.Context) {
@@ -135,7 +376,7 @@ func handleWebSocket(c *gin.Context) {
 	filex :=  c.Query("filepath")
 	data,_:=Jiami("19a7251c679b22ccf83bd8a9709910be",filex)
 	download.Store(data,filex)
-	fmt.Println(data)
+	fmt.Println(data,filex)
 	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
 		fmt.Println(err)
@@ -166,8 +407,11 @@ func handleWebSocket(c *gin.Context) {
 }
 
 func Downdload(c *gin.Context){
+	 tip := c.Query("tip")
 	 filex := c.Query("filepath")
-	 key,ok := download.Load(filex)
+	 filex2 := strings.ReplaceAll(filex," ","+")
+	 fmt.Println(filex,filex2)
+	 key,ok := download.Load(filex2)
 	 if !ok{
 	 	 c.JSON(200,gin.H{
 	 	 	"error" : "can't find this path",
@@ -176,6 +420,22 @@ func Downdload(c *gin.Context){
 	 }
 	filename := filepath.Base(key.(string))
 	fmt.Println(filename,key)
+
+	if tip == "size" {
+		fileinfo, err := os.Stat(key.(string))
+		if err != nil {
+			fmt.Println("获取文件信息失败:", err)
+			c.JSON(200,gin.H{
+				"error" : err,
+			})
+			return
+		}
+		filesize := fileinfo.Size()
+		c.JSON(200,gin.H{
+			"msg" : fmt.Sprint(filesize),
+		})
+		return
+	}
 	c.Header("Content-Type", "application/octet-stream")
 	c.Header("Content-Disposition", "attachment; filename="+filename) // 用来指定下载下来的文件名
 	c.Header("Content-Transfer-Encoding", "binary")
@@ -387,8 +647,6 @@ func Addip(c *gin.Context){
 		})
 		return
 	}
-
-
 	v := Readfile("./cache/signfile")
 	err := Writefile("./cache/signfile",v+"\n"+ip)
 	if err != nil{
@@ -443,6 +701,18 @@ func Cacheip(){
 			continue
 		}
 		iplist.Store(fileScanner.Text(),"sign")
+		Offline.Store(fileScanner.Text(),"offonline")
+		data , ok := loadconf.GroupipCache.Load(fileScanner.Text())
+		if ok {
+			if loadconf.ShareConfload.RewriteLogAndip == "yes" {
+				SyncSAgentStatus(fileScanner.Text(),data.(string),"offonline",loadconf.ShareConfload.Spsqlipadd)
+			}
+		}else {
+			if loadconf.ShareConfload.RewriteLogAndip == "yes" {
+				SyncSAgentStatus(fileScanner.Text(),"null","offonline",loadconf.ShareConfload.Spsqlipadd)
+			}
+		}
+
 	}
 }
 
@@ -688,13 +958,17 @@ func proxy(c *gin.Context){
 			InsidePath,_:= proxycomp.Load(proxynames+"InsidePath")
 			Pathproxy = H.(string) + "://" +  Server.(string) + ":" + InsidePathPort.(string) + InsidePath.(string)
 	}else {
-		c.JSON(200,gin.H{
+		c.JSON(503,gin.H{
 			"msg" : "请求不合法 p1101",
 		})
+		fmt.Printf("请求不合法 p1101")
 		 return
 	}
 	reqProxy(c,Pathproxy,proxynames)
 }
+
+
+
 func reqProxy(c *gin.Context,Pathproxy string,Proxyname string){
 	targetURL := Pathproxy
 	// 创建HTTP客户端
@@ -726,9 +1000,10 @@ func reqProxy(c *gin.Context,Pathproxy string,Proxyname string){
 
 
 	if strings.Index(fmt.Sprint(req.Body),"token") == -1 {
-		c.JSON(200,gin.H{
+		c.JSON(503,gin.H{
 			"msg" : "请求不合法 p1102",
 		})
+		fmt.Printf("请求不合法 p1102")
 		return
 	}
 
@@ -737,9 +1012,10 @@ func reqProxy(c *gin.Context,Pathproxy string,Proxyname string){
 	tokens := strings.ReplaceAll(v[0]," ","")
 	usertoken,_ := proxycomp.Load(Proxyname+"Tokencheck")
 	if strings.Index(tokens,usertoken.(string)) == -1 {
-		c.JSON(200,gin.H{
+		c.JSON(503,gin.H{
 			"msg" : "请求不合法 p1103",
 		})
+		fmt.Printf("请求不合法 p1103")
 		return
 	}
 
@@ -874,6 +1150,7 @@ func Leg( c *gin.Context){
 		old := "{{" + keys.(string) + "}}"
 		HandleMode = strings.ReplaceAll(HandleMode,old,varname)
 	}
+
 	if Proxyto == ""{
 		msg := Cmdrun(HandleMode)
 		if switchon == "yes" {
