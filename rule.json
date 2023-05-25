@@ -46,7 +46,7 @@
   "AlertMethod" : [
     {
       "Path" : "script/qywx.sh",
-      "RunMode":" c1ff2b0b-1687-4fbf-9518-788a640624de \"{{msg}}\""
+      "RunMode":" sssssss \"{{msg}}\""
     }
   ]
 }
