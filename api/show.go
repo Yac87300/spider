@@ -1,10 +1,16 @@
 package api
 
 import (
+	"bytes"
 	"example.com/mod/loadconf"
 	"example.com/mod/master"
 	"fmt"
 	"github.com/gin-gonic/gin"
+	"io"
+	"io/ioutil"
+	"mime/multipart"
+	"net/http"
+	"os"
 	"strings"
 )
 
@@ -15,6 +21,7 @@ func Signrouter(server *gin.Engine){
 		ruleGroup.GET("/get",GetAllrule)
 		ruleGroup.GET("/getrs",GetAllruleAndresults)
 		ruleGroup.POST("/push",PushFromapi)
+		ruleGroup.POST("/GetOpenfuctionFile",GetOpenfuctionFile)
 	}
 	server.POST("/rule/legproxy",legproxy)
 	server.GET("/ping",func(c *gin.Context){
@@ -24,6 +31,63 @@ func Signrouter(server *gin.Engine){
 	})
 
 }
+
+
+//func FunctionDo(c *gin.Context){
+//	 Runmode := c.PostForm("Howtodo")
+//
+//}
+
+func GetOpenfuctionFile(c *gin.Context) {
+
+	if strings.Index(loadconf.Conf["Matser"],c.ClientIP()) == -1   {
+		c.JSON(200,gin.H{
+			"msg" : "Agent: 非法调用",
+		})
+		return
+	}
+	// 获取上传的文件
+	file, err := c.FormFile("file")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
+
+	// 打开上传的文件
+	src, err := file.Open()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
+	defer src.Close()
+
+	// 创建目标文件
+	dst, err := os.Create(file.Filename)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
+	defer dst.Close()
+
+	// 复制上传的文件到目标文件
+	if _, err = io.Copy(dst, src); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"msg": "File uploaded successfully!",
+	})
+}
+
 
 func legproxy(c *gin.Context){
 	if strings.Index(loadconf.Conf["Matser"],c.ClientIP()) == -1   {
@@ -64,6 +128,52 @@ func GetAllrule(c *gin.Context){
 	cjs := loadconf.Rulejson{}
 	list.AlertMethod = cjs.AlertMethod
 	c.JSON(200,loadconf.ShareConfload)
+}
+
+
+func Synctasksstatus(taskid,taskname,taskresult,Taskstatus,Datafrom,Tasktime,Alertmethod,AlertData,Alerttype string){
+	url := "http://" + loadconf.Conf["Matser"] + "/master/proxy/task"
+	method := "POST"
+	payload := &bytes.Buffer{}
+	writer := multipart.NewWriter(payload)
+	_ = writer.WriteField("taskid", taskid)
+	_ = writer.WriteField("taskname", taskname)
+	_ = writer.WriteField("taskresult",taskresult)
+	_ = writer.WriteField("Taskstatus", Taskstatus)
+	_ = writer.WriteField("Datafrom", Datafrom)
+	_ = writer.WriteField("Tasktime", Tasktime)
+	_ = writer.WriteField("Alertmethod", Alertmethod)
+	_ = writer.WriteField("AlertData", AlertData)
+	_ = writer.WriteField("Alerttype", Alerttype)
+	_ = writer.WriteField("Aletstatus", "Running")
+	err := writer.Close()
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+
+	client := &http.Client {
+	}
+	req, err := http.NewRequest(method, url, payload)
+
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	res, err := client.Do(req)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	defer res.Body.Close()
+
+	_, err = ioutil.ReadAll(res.Body)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
 }
 
 func GetAllruleAndresults(c *gin.Context){

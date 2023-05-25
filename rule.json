@@ -9,7 +9,40 @@
   "Bind": "no",
   "CommandLimit" : "yes",
   "Role" : "master",
-  "GatewayProxy" : [],
+  "RewriteLogAndip" : "yes",
+  "Spsqladd" : "",
+  "Spsqlipadd" : "http://127.0.0.1:1212/wip",
+  "GinlogToSpsql" : "http://127.0.0.1:1212/wginlog",
+  "OpenUiMode" : "",
+  "UiModeStorageadd" : "",
+  "UiModeStorage" : "",
+  "GatewayProxy" : [
+    {
+      "H" : "http",
+      "OutPath" : "sign",
+      "InsidePath": "/proxyai/login",
+      "InsidePathPort" : "1234",
+      "Servers": "127.0.0.1",
+      "Lvs"    : "round",
+      "Tokencheck": "akhjbd871g",
+    },{
+      "H" : "http",
+      "OutPath" : "task",
+      "InsidePath": "/wtask",
+      "InsidePathPort" : "1212",
+      "Servers": "127.0.0.1",
+      "Lvs"    : "round",
+      "Tokencheck": "akhjbd871g2ekjdbaodhpajslkd19dansjx01qx",
+    },{
+      "H" : "http",
+      "OutPath" : "ip",
+      "InsidePath": "/wip",
+      "InsidePathPort" : "1212",
+      "Servers": "127.0.0.1",
+      "Lvs"    : "round",
+      "Tokencheck": "akhjbd871g2ekjdbaodhpajslkd19dansjx01qx",
+    }
+  ],
   "AlertMethod" : [
     {
       "Path" : "script/qywx.sh",

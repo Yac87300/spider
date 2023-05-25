@@ -1,0 +1,27 @@
+{
+  "Name" : "天巡文件",
+  "Crontab":"20 90 * * * [WITH] 192.168.0.88",
+  "ByAlert" : "",
+  "Logical": [
+    {
+      "Tag" : "cd",
+      "StepMode": "function",
+      "Do": "cd /data/xunjian/data/ && file=`ls -ltr | tail -n 1 | awk '{print $1}'`"
+    },
+    {
+      "Tag" : "getfile",
+      "StepMode": "function",
+      "Do" : "func(cd);file=`ls -ltr | tail -n 1 | awk '{print $1}'`",
+    },
+    {
+      "StepMode": "cmd",
+      "Msg": "对比文件",
+      "Do" : "func(getfile);python show.py default.xlsx $file > check.txt",
+    },
+    {
+      "StepMode": "cmd",
+      "Msg": "上传文件",
+      "Do" : "func(getfile);openwx -a n98asdd10daskdma9s8sdda91d -file $file -file check.txt -timeout 30 -group 天巡测试",
+    }
+  ]
+}

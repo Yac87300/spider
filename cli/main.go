@@ -5,6 +5,7 @@ import (
 	"example.com/mod/cli/pool"
 	"flag"
 	"fmt"
+	"golang.org/x/crypto/ssh/terminal"
 	"io/ioutil"
 	"log"
 	"os"
@@ -14,6 +15,7 @@ func main(){
 	get := flag.String("g", "rule", "-g ip/ipok/ipbad/rule/sync/alert")
 	o := flag.String("o","s","r,s,rs")
 	e := flag.String("e","","-e key=xxx,key=xxx")
+	u := flag.String("u","","username")
 	l := flag.String("l","","legname")
 	ip := flag.String("ip","","ip to get")
 	id := flag.String("id","","id from rule")
@@ -26,10 +28,10 @@ func main(){
 		os.Exit(-1)
 	}
 
-	if pool.Getmasterspid() == ""{
-		fmt.Println("no spid,please set spid Frist,set ENV(spid) for systemctl")
-		os.Exit(-1)
-	}
+	//if pool.Getmasterspid() == ""{
+	//	fmt.Println("no spid,please set spid Frist,set ENV(spid) for systemctl")
+	//	os.Exit(-1)
+	//}
 
 	flag.Parse()
 
@@ -66,22 +68,25 @@ func main(){
 		pool.Ws2(*e)
 	case "dfile":
 		pool.Download(*e)
+	case "catproxy":
+		pool.Getproxy()
 
+	case "catleg":
+		pool.Getleg()
+	case "login":
+		fmt.Print("Enter your password: ")
+		bytePassword, err := terminal.ReadPassword(int(os.Stdin.Fd()))
+		if err != nil {
+			fmt.Println("Error reading password:", err)
+			return
+		}
+		fmt.Print("\n")
+		pool.SetLogin(string(bytePassword),*u)
 	default:
 		fmt.Println("-g ip/ipok/ipbad/rule/sync/alert")
 	}
-
-
-
-
 	flag.Parse()
 }
-
-
-func SetmasterAddress(add string){
-	pool.Writefile("/etc/.madd",add)
-}
-
 
 
 
@@ -89,9 +94,9 @@ func Getiplist(typs,group string){
 	fmt.Printf("%-17s%-14s%-14s\n","IP","Status","Group")
 	url := ""
 	if group == "" {
-		url = "http://" + pool.GetmasterAddress() + "/master/show" + "?spid=" + pool.Getmasterspid()
+		url = "http://" + pool.GetmasterAddress() + "/master/show" + "?apiToken=" + pool.Getmasterspid() +"&username=" + pool.GetUser()
 	}else {
-		url = "http://" + pool.GetmasterAddress() + "/master/show" + "?spid=" + pool.Getmasterspid() + "&group=" + group
+		url = "http://" + pool.GetmasterAddress() + "/master/show" + "?apiToken=" + pool.Getmasterspid() + "&group=" + group +"&username=" + pool.GetUser()
 	}
 
 	resp, err := pool.Post(url,nil)

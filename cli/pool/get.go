@@ -1,16 +1,19 @@
 package pool
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
 	"example.com/mod/loadconf"
 	"fmt"
 	"github.com/gorilla/websocket"
+	"io"
 	"io/ioutil"
 	"log"
 	"mime/multipart"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -34,9 +37,158 @@ func (t *noLogTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	return resp, err
 }
 
+func Getleg(){
+	fmt.Printf("%-20s%-40s%-40s\n","Name","Vars","HandleMode")
+	url := "http://"+ GetmasterAddress() + "/master/show/leg" + "?apiToken=" + Getmasterspid() +"&username=" + GetUser()
+	method := "GET"
+	client := &http.Client {
+	}
+	req, err := http.NewRequest(method, url, nil)
+
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	res, err := client.Do(req)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	defer res.Body.Close()
+
+	body, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	list := loadconf.Legst{}
+	err = json.Unmarshal(body,&list)
+	for _,v := range list.Legs{
+		fmt.Printf("%-20s%-40s%-40s\n",v.Legname,v.VarsFromApi,v.HandleMode)
+	}
+}
+func Getproxy(){
+    	fmt.Printf("%-30s%5s\n","Method","Path -> Servers")
+		url := "http://"+ GetmasterAddress() + "/master/show/proxy" + "?apiToken=" + Getmasterspid() +"&username=" + GetUser()
+		method := "GET"
+		client := &http.Client {
+		}
+		req, err := http.NewRequest(method, url, nil)
+
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		res, err := client.Do(req)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		defer res.Body.Close()
+
+		body, err := ioutil.ReadAll(res.Body)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		list := []loadconf.Proxyshow{}
+		err = json.Unmarshal(body,&list)
+	    for _,v := range list{
+
+		fmt.Printf("%-30s%5s\n",v.H,"/master/proxy/"+v.OutPath+" -> "+v.Servers+v.InsidePath)
+	   }
+}
+
 
 func Download(filepath string){
 	url := "http://"+ GetmasterAddress() +"/master/file/download/" + "?spid=" + Getmasterspid() + "&filepath=" + filepath
+	method := "GET"
+	payload := &bytes.Buffer{}
+	writer := multipart.NewWriter(payload)
+	err := writer.Close()
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	client := &http.Client {
+	}
+	req, err := http.NewRequest(method, url, payload)
+
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	res, err := client.Do(req)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	defer res.Body.Close()
+	fmt.Println("Send Key to CryptoDownloadFile")
+
+	fs := strings.Split(res.Header.Get("Content-Disposition"),";")
+	fs2 := strings.Split(fs[1],"=")
+
+	// 打开文件以供写入
+	output, err := os.Create(fs2[1])
+	if err != nil {
+		fmt.Println("Error creating file:", err)
+		return
+	}
+	defer output.Close()
+	reader := bufio.NewReader(res.Body)
+	var wg sync.WaitGroup
+	go Getsize(filepath,fs2[1],&wg)
+
+	start := time.Now()
+	buf := make([]byte,1024)
+	for {
+		n, err := reader.Read(buf)
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			fmt.Println("Error reading from response body:", err)
+			return
+		}
+
+		if n > 0 {
+			_, err = output.Write(buf[:n])
+			if err != nil {
+				fmt.Println("Error writing to file:", err)
+				return
+			}
+		}
+	}
+
+	wg.Wait()
+	end := time.Now()
+	// 计算函数的处理时间
+	duration := end.Sub(start)
+	fmt.Println("\nDownLoadFile Times:",duration)
+
+	//body, err := ioutil.ReadAll(res.Body)
+	//if err != nil {
+	//	fmt.Println(err)
+	//	return
+	//}
+	//list := Mastejson{}
+	//err = json.Unmarshal(body,&list)
+	//if err != nil {
+	//	//fmt.Println("err1:",err)
+	//	//os.Exit(-1)
+	//}
+	//if list.Error != ""{
+	//	fmt.Println("err2:",list.Error)
+	//	os.Exit(-1)
+	//}
+	//_ = Writefile(fs2[1],"")
+
+}
+
+func Getsize(filepath,filename string, wg *sync.WaitGroup){
+	url := "http://"+ GetmasterAddress() +"/master/file/download/" + "?spid=" + Getmasterspid() + "&filepath=" + filepath +"&tip=size"
 	method := "GET"
 	payload := &bytes.Buffer{}
 	writer := multipart.NewWriter(payload)
@@ -69,7 +221,8 @@ func Download(filepath string){
 	list := Mastejson{}
 	err = json.Unmarshal(body,&list)
 	if err != nil {
-		fmt.Println("err:",err)
+		fmt.Println("err2:",err)
+		fmt.Println(string(body))
 		os.Exit(-1)
 	}
 	if list.Error != ""{
@@ -77,12 +230,49 @@ func Download(filepath string){
 		os.Exit(-1)
 	}
 
-	fs := strings.Split(res.Header.Get("Content-Disposition"),";")
-	fs2 := strings.Split(fs[1],"=")
-	fmt.Println(fs2[1])
-	_ = Writefile(fs2[1],string(body))
-}
+	wg.Add(1)
+	old := float64(1)
 
+	var bytesWritten float64 = 0
+	start := time.Now()
+	func(){
+		for {
+			fileinfo, err := os.Stat(filename)
+			if err != nil {
+                  continue
+			}
+			filesize := fileinfo.Size()
+			sd := float64(filesize) - old
+			total,err := strconv.Atoi(list.Msg)
+			totalx := total / 1024 / 1024
+			bfs := float64(filesize) / float64(total) * 100
+			xz := float64(filesize) - float64(total)
+
+			bytesWritten += sd
+			elapsed := time.Since(start).Seconds()
+			speed := float64(bytesWritten) / elapsed / 1024 /1024
+
+			//fmt.Printf("\rWriting speed: %.2f bytes/sec", speed)
+
+			//fmt.Printf("\rFileName:%-8s Total:%sMb -> [%.2f%%]",filename,fmt.Sprint(totalx),bfs)
+			msg := fmt.Sprintf("FileName: %-10s Total:%8sMb  -> [%6.1f%%] <- %6.1f mb/s\r", filename,fmt.Sprint(totalx),bfs,speed)
+			fmt.Print(msg)
+			old = float64(filesize)
+
+
+			//msg := fmt.Sprintf("FileName:%-8s Total:%sMb -> [%.2f%%]", filename, fmt.Sprint(totalx), bfs)
+			//fmt.Print("\rS:" + msg)
+
+			if xz == 0 || xz == 5400{
+				wg.Done()
+				break
+			}
+			time.Sleep(time.Millisecond * 50)
+		}
+		fmt.Println("..")
+	}()
+
+}
 
 
 func Ws2(filepath string){
@@ -113,7 +303,7 @@ func Ws2(filepath string){
 
 
 func Doleg(legname,cs string) {
-	url :=  "http://"+ GetmasterAddress() +"/master/leg/" + legname + "?spid=" + Getmasterspid()
+	url :=  "http://"+ GetmasterAddress() +"/master/leg/" + legname + "?apiToken=" + Getmasterspid() +"&username=" + GetUser()
 	method := "POST"
 	payload := &bytes.Buffer{}
 	writer := multipart.NewWriter(payload)
@@ -199,7 +389,7 @@ func Getrulelist(){
 
 var deferdata sync.Map
 func GetDeferrule()error{
-	url := "http://" + GetmasterAddress() + "/master/showdelayAlert" + "?spid=" + Getmasterspid()
+	url := "http://" + GetmasterAddress() + "/master/showdelayAlert" + "?apiToken=" + Getmasterspid() +"&username=" + GetUser()
 	resp, err := Post(url,nil)
 	if err != nil {
 		fmt.Println("Can't reqdo to ",GetmasterAddress(),"check address and spmid")
@@ -232,9 +422,9 @@ func Getrulerslist(o,ips,group string){
 
 	url := ""
 	if group != "" {
-		url = "http://" + GetmasterAddress() + "/master/getrulers" + "?spid=" + Getmasterspid() + "&group=" + group
+		url = "http://" + GetmasterAddress() + "/master/getrulers" + "?apiToken=" + Getmasterspid() + "&group=" + group +"&username=" + GetUser()
 	}else {
-		url = "http://" + GetmasterAddress() + "/master/getrulers" + "?spid=" + Getmasterspid()
+		url = "http://" + GetmasterAddress() + "/master/getrulers" + "?apiToken=" + Getmasterspid() +"&username=" + GetUser()
 	}
 
 	resp, err := Post(url,nil)
@@ -365,7 +555,7 @@ func Getrulerslist(o,ips,group string){
 
 func Getmethod(){
 	fmt.Printf("%-30s%5s\n","Name","Mode")
-	url := "http://" + GetmasterAddress() + "/master/showmethod" + "?spid=" + Getmasterspid()
+	url := "http://" + GetmasterAddress() + "/master/showmethod" + "?apiToken=" + Getmasterspid() +"&username=" + GetUser()
 	resp, err := Post(url,nil)
 	if err != nil {
 		fmt.Println("Can't reqdo to ",GetmasterAddress(),"check address and spmid")
@@ -389,7 +579,7 @@ func Getmethod(){
 
 func Syncstatus(){
 	fmt.Printf("%-30s%5s\n","Sync AgentStatus ","Running...")
-	url := "http://" + GetmasterAddress() + "/master/syncstatus" + "?spid=" + Getmasterspid()
+	url := "http://" + GetmasterAddress() + "/master/syncstatus" + "?apiToken=" + Getmasterspid()  +"&username=" + GetUser()
 	resp, err := Post(url,nil)
 	if err != nil {
 		fmt.Println("Can't reqdo to ",GetmasterAddress(),"check address and spmid")
@@ -421,7 +611,7 @@ func Syncstatus(){
 
 func Sleepalert(id,time string){
 	fmt.Printf("%-s%5s\n","- "," Marshal from pool...")
-	url := "http://" + GetmasterAddress() + "/master/delatAlertwithMd5" + "?spid=" + Getmasterspid()
+	url := "http://" + GetmasterAddress() + "/master/delatAlertwithMd5" + "?apiToken=" + Getmasterspid()  +"&username=" + GetUser()
 	method := "POST"
 	payload := &bytes.Buffer{}
 	writer := multipart.NewWriter(payload)
@@ -472,7 +662,7 @@ func Sleepalert(id,time string){
 
 func Openalert(id string){
 	fmt.Printf("%-s%5s\n","- "," Marshal from pool...")
-	url := "http://" + GetmasterAddress() + "/master/openalertWithMd5" + "?spid=" + Getmasterspid()
+	url := "http://" + GetmasterAddress() + "/master/openalertWithMd5" + "?apiToken=" + Getmasterspid() +"&username=" + GetUser()
 	method := "POST"
 	payload := &bytes.Buffer{}
 	writer := multipart.NewWriter(payload)
