@@ -1,0 +1,18 @@
+{
+  "Global": [
+    {
+      "OpenFunction": "Test"
+    }
+  ],
+  "FuncTions": [
+    {
+      "FuncTionName" : "Test",
+      "Domode" : "-f -b -name=$name -key=$key",
+      "VarsComplication": "name,key",
+      "Tips": "此脚本用来对比天巡文件的巡检失败数量，自动罗列出需要处理的关键信息",
+      "WhoDoThis": "master",
+      "LinkFile" : "functionmode/functionfile/link/test.sh",
+      "AllowWebWrite": "yes",
+    }
+  ]
+}
