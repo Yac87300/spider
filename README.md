@@ -40,7 +40,10 @@ spcli -g catproxy #查看api代理
 spcli -g catleg  #查看自定义脚本  
 spcli -g sleep  #休眠告警 -id ruleid -time 休眠时间  
 spcli -g open  #打开告警 -id ruleid  
-spcli -g edit -ip ip #远程修改agent配置文件    
+spcli -g edit -ip ip #远程修改agent配置文件
+
+---------------------------------------------------------
+V2版本工具  
 spcli -g port -s 0.0.0.0:80 -d 192.168.23.198:73  
 spcli -g ai -e "如何排查k8s node notready的问题"    
 spcli -g doit -msg "巡检表"                                                                                                                                                                                                     
